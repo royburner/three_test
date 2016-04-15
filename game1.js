@@ -15,7 +15,7 @@ var vaisseau = null;
 function initMesh() {
     var loader = new THREE.JSONLoader();
     loader.load('./vaisseau.json', function(geometry) {
-        vaisseau = new THREE.Mesh(geometry, new THREE.MeshNormalMaterial());
+        vaisseau = new THREE.Mesh(geometry, new THREE.MeshLambertMaterial({color:0xaaaaff }));
 	vaisseau.position.y = -2;
         vaisseau.scale.set(0.2,0.2,0.2);
         vaisseau.rotation.x += 0.5;
@@ -26,7 +26,7 @@ initMesh();
 
 var terraCubeWidth = 1;
 var terraCubeGeom = new THREE.BoxGeometry( terraCubeWidth, terraCubeWidth, terraCubeWidth );
-var terraCubeMat = new THREE.MeshNormalMaterial();
+var terraCubeMat = new THREE.MeshLambertMaterial({color:0x00ff00 });
 function terraCubeGen(x, y, z){
       var cube1 = new THREE.Mesh( terraCubeGeom, terraCubeMat );
       cube1.position.x = x;
@@ -35,13 +35,22 @@ function terraCubeGen(x, y, z){
       scene.add( cube1 );
 }
 
-var light = new THREE.AmbientLight(0xffffff);
+//lights
+var light = new THREE.AmbientLight(0xaaaaaa);
 scene.add(light);
+var light2 = new THREE.DirectionalLight(0xffffff, 1);
+light2.position.set( 0, 500, 100 );
+scene.add(light2);
 
+//fog
+scene.fog = new THREE.Fog( 0x000000  , 1, 50);
+
+//cam
 camera.position.z = 5;
 
 //////// game param ////////////
-var speed = 0.01;
+var speed = 0.02;
+var controlSpeed = 0.2;
 
 var playerInput = {}; 
 playerInput.left = false;
@@ -51,8 +60,10 @@ playerInput.down = false;
 
 var terra = {};
 terra.horizon = {};
-terra.horizon.dist = 20;
+terra.horizon.dist = 60;
 terra.horizon.z = -terra.horizon.dist;
+terra.demiwidth = 4;//width = 8
+terra.demiheight = 2;//height = 4
 
 ////////// render loop /////////////////
 function terraGen(){
@@ -74,18 +85,18 @@ var update = function() {
     //follow vaisseau
     camera.position.z = vaisseau.position.z + 5;
     terraGen();
-
-    if(playerInput.left){
-      vaisseau.position.x -= 0.1;
+    
+    if(playerInput.left && vaisseau.position.x > -terra.demiwidth){
+      vaisseau.position.x -= controlSpeed;
     }
-    if(playerInput.right){
-      vaisseau.position.x += 0.1;
+    if(playerInput.right && vaisseau.position.x < terra.demiwidth){
+      vaisseau.position.x += controlSpeed;
     }
-    if(playerInput.up){
-      vaisseau.position.y += 0.1;
+    if(playerInput.up && vaisseau.position.y < terra.demiheight){
+      vaisseau.position.y += controlSpeed;
     }
-    if(playerInput.down){
-      vaisseau.position.y -= 0.1;
+    if(playerInput.down && vaisseau.position.y > -terra.demiheight){
+      vaisseau.position.y -= controlSpeed;
     }
   }
 };
