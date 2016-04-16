@@ -12,7 +12,7 @@ renderer.setSize( window.innerWidth, window.innerHeight );
 document.body.appendChild( renderer.domElement );
 
 var vaisseau = null;
-function initMesh() {
+function initVaisseau() {
     var loader = new THREE.JSONLoader();
     loader.load('./vaisseau.json', function(geometry) {
         vaisseau = new THREE.Mesh(geometry, new THREE.MeshLambertMaterial({color:0xaaaaff }));
@@ -22,17 +22,36 @@ function initMesh() {
         scene.add(vaisseau);
     });
 }
-initMesh();
+initVaisseau();
+
+//game elements
+function eltGen(x, y, z, geom, mat){
+      var elt = new THREE.Mesh(geom, mat);
+      elt.position.x = x;
+      elt.position.y = y;
+      elt.position.z = z;
+      scene.add( elt );
+      return elt;     
+}
+
+var blurp1Geom = null;
+function initBlurp1Geom() {
+    var loader = new THREE.JSONLoader();
+    loader.load('./blurp1.json', function(geometry) {
+         blurp1Geom = geometry;
+    });
+}
+initBlurp1Geom();
+var blurp1Mat = new THREE.MeshLambertMaterial({color:0x0000ff });
+function blurp1Gen(x, y, z){
+    return eltGen(x, y, z, blurp1Geom, blurp1Mat);
+}
 
 var terraCubeWidth = 1;
 var terraCubeGeom = new THREE.BoxGeometry( terraCubeWidth, terraCubeWidth, terraCubeWidth );
 var terraCubeMat = new THREE.MeshLambertMaterial({color:0x00ff00 });
 function terraCubeGen(x, y, z){
-      var cube1 = new THREE.Mesh( terraCubeGeom, terraCubeMat );
-      cube1.position.x = x;
-      cube1.position.y = y;
-      cube1.position.z = z;
-      scene.add( cube1 );
+      return eltGen( x, y, z, terraCubeGeom, terraCubeMat );
 }
 
 //lights
@@ -46,10 +65,13 @@ scene.add(light2);
 scene.fog = new THREE.Fog( 0x000000  , 1, 50);
 
 //cam
-camera.position.z = 5;
+var cameraZDecal = 5;
+camera.position.z = cameraZDecal;
 
 //////// game param ////////////
-var speed = 0.02;
+var dateDebut = Date.now();
+
+var speed = 0.01;
 var controlSpeed = 0.2;
 
 var playerInput = {}; 
@@ -65,6 +87,10 @@ terra.horizon.z = -terra.horizon.dist;
 terra.demiwidth = 4;//width = 8
 terra.demiheight = 2;//height = 4
 
+//lvl 1 def
+var blurp1Serie1BeginZ = 70;
+var blurp1Speed = 0.002;
+
 ////////// render loop /////////////////
 function terraGen(){
   if(vaisseau!==null){
@@ -72,10 +98,31 @@ function terraGen(){
     var deltaHorizon = vaisseau.position.z - terra.horizon.z;
     while (deltaHorizon <= terra.horizon.dist){
       terra.horizon.z -= terraCubeWidth;
-      terraCubeGen(-4 * Math.cos(terra.horizon.z),-2,terra.horizon.z);
-      terraCubeGen(4 * Math.cos(terra.horizon.z),-2,terra.horizon.z);
+      terraCubeGen(-1 * terra.demiwidth * Math.cos(0.1 * terra.horizon.z),-2,terra.horizon.z);
+      terraCubeGen(terra.demiwidth * Math.cos(0.1 * terra.horizon.z),-2,terra.horizon.z);
       deltaHorizon = vaisseau.position.z - terra.horizon.z;
     }    
+  }
+}
+
+var blurp1Serie1 = null;
+function ennemyGen(){
+  if(vaisseau!==null){
+    if(terra.horizon.z <= -blurp1Serie1BeginZ){
+      if(blurp1Serie1===null){
+        blurp1Serie1 = blurp1Gen(0, 0, vaisseau.position.z-blurp1Serie1BeginZ);
+        blurp1Serie1.rotation.y = Math.PI/2;
+        blurp1Serie1.scale.set(0.2,0.2,0.2);
+        var audio = new Audio('blurp1.wav');
+        audio.play();
+      }
+      if(vaisseau.position.z+cameraZDecal >= blurp1Serie1.position.z){
+        blurp1Serie1.position.x = terra.demiwidth* Math.cos(blurp1Speed * (Date.now()-dateDebut));
+      }else if(vaisseau.position.z+cameraZDecal < blurp1Serie1.position.z){
+        scene.remove(blurp1Serie1);
+        blurp1Serie1 = null;
+      }
+    }
   }
 }
 
@@ -83,9 +130,9 @@ var update = function() {
   if(vaisseau!==null){
     vaisseau.position.z -= speed * (Date.now()-lastRender);
     //follow vaisseau
-    camera.position.z = vaisseau.position.z + 5;
+    camera.position.z = vaisseau.position.z + cameraZDecal;
     terraGen();
-    
+    ennemyGen(); 
     if(playerInput.left && vaisseau.position.x > -terra.demiwidth){
       vaisseau.position.x -= controlSpeed;
     }
@@ -114,13 +161,6 @@ render();
 
 
 ////////// input ////////////////
-
-var mouse = {};
-
-function leftClick(event) {
-  mouse.lastIntersected = null; 
-}
-document.body.addEventListener("click", leftClick);
 
 function keyPress(event) {
   if(event.keyCode=='0'){
