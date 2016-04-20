@@ -6,18 +6,19 @@ document.body.appendChild( stats.dom );
 
 var scene = new THREE.Scene();
 var aspect = window.innerWidth / window.innerHeight;
-var camera = new THREE.PerspectiveCamera( 75, aspect, 0.1, 1000 );
+var camera = new THREE.PerspectiveCamera( 120, aspect, 0.1, 1000 );
 var renderer = new THREE.WebGLRenderer();
 renderer.setSize( window.innerWidth, window.innerHeight );
 document.body.appendChild( renderer.domElement );
 
+//vaisseau
 var vaisseau = null;
 function initVaisseau() {
     var loader = new THREE.JSONLoader();
     loader.load('./vaisseau.json', function(geometry) {
         vaisseau = new THREE.Mesh(geometry, new THREE.MeshLambertMaterial({color:0xaaaaff }));
 	vaisseau.position.y = -2;
-        vaisseau.scale.set(0.2,0.2,0.2);
+        vaisseau.scale.set(0.7,0.7,0.7);
         vaisseau.rotation.x += 0.5;
         scene.add(vaisseau);
     });
@@ -62,17 +63,21 @@ light2.position.set( 0, 500, 100 );
 scene.add(light2);
 
 //fog
-scene.fog = new THREE.Fog( 0x000000  , 1, 50);
+//scene.fog = new THREE.Fog( 0x000000  , 1, 50);
 
 //cam
-var cameraZDecal = 5;
-camera.position.z = cameraZDecal;
+var cameraZDecal = -25;
+var cameraYDecal = 0;
+var cameraXDecal = 20;
+camera.position.x = cameraXDecal;
+camera.position.y = cameraYDecal;
+camera.rotation.y = Math.PI /2;
 
 //////// game param ////////////
 var dateDebut = Date.now();
 
 var speed = 0.01;
-var controlSpeed = 0.2;
+var controlSpeed = 1;
 
 var playerInput = {}; 
 playerInput.left = false;
@@ -82,10 +87,12 @@ playerInput.down = false;
 
 var terra = {};
 terra.horizon = {};
-terra.horizon.dist = 60;
+terra.horizon.dist = 80;
 terra.horizon.z = -terra.horizon.dist;
 terra.demiwidth = 4;//width = 8
-terra.demiheight = 2;//height = 4
+terra.demiheight = 20;//height = 20
+
+var collisionners = {};
 
 //lvl 1 def
 var blurp1Serie1BeginZ = 70;
@@ -98,8 +105,8 @@ function terraGen(){
     var deltaHorizon = vaisseau.position.z - terra.horizon.z;
     while (deltaHorizon <= terra.horizon.dist){
       terra.horizon.z -= terraCubeWidth;
-      terraCubeGen(-1 * terra.demiwidth * Math.cos(0.1 * terra.horizon.z),-2,terra.horizon.z);
-      terraCubeGen(terra.demiwidth * Math.cos(0.1 * terra.horizon.z),-2,terra.horizon.z);
+      var terraCube1 = terraCubeGen(-1 * terra.demiwidth * Math.cos(0.1 * terra.horizon.z),-terra.demiheight,terra.horizon.z);
+      var terraCube2 = terraCubeGen(terra.demiwidth * Math.cos(0.1 * terra.horizon.z),-terra.demiheight,terra.horizon.z);
       deltaHorizon = vaisseau.position.z - terra.horizon.z;
     }    
   }
@@ -111,14 +118,24 @@ function ennemyGen(){
     if(terra.horizon.z <= -blurp1Serie1BeginZ){
       if(blurp1Serie1===null){
         blurp1Serie1 = blurp1Gen(0, 0, vaisseau.position.z-blurp1Serie1BeginZ);
-        blurp1Serie1.rotation.y = Math.PI/2;
-        blurp1Serie1.scale.set(0.2,0.2,0.2);
+        //blurp1Serie1.rotation.y = Math.PI/2;
+        //blurp1Serie1.scale.set(0.2,0.2,0.2);
         var audio = new Audio('blurp1.wav');
         audio.play();
+        //coll
+        var zColl = Math.round(blurp1Serie1.position.z);
+        if(!(zColl in collisionners)){
+          collisionners[zColl] = [blurp1Serie1];
+        }else{
+          collisionners[zColl].push(blurp1Serie1);  
+        }
       }
-      if(vaisseau.position.z+cameraZDecal >= blurp1Serie1.position.z){
+      if(vaisseau.position.z+20 >= blurp1Serie1.position.z){
         blurp1Serie1.position.x = terra.demiwidth* Math.cos(blurp1Speed * (Date.now()-dateDebut));
       }else if(vaisseau.position.z+cameraZDecal < blurp1Serie1.position.z){
+        //coll
+        var zCollFin = Math.round(vaisseau.position.z+cameraZDecal);
+        collisionners[zCollFin]=null;
         scene.remove(blurp1Serie1);
         blurp1Serie1 = null;
       }
@@ -126,13 +143,38 @@ function ennemyGen(){
   }
 }
 
-var update = function() {
+var vaisseauWidth = 1;
+function collide(){
   if(vaisseau!==null){
-    vaisseau.position.z -= speed * (Date.now()-lastRender);
+    var zColl = Math.round(vaisseau.position.z);
+    if(zColl in collisionners){
+      var collisionnerTab = collisionners[zColl];
+      for (i = 0; i < collisionnerTab.length; i += 1) {
+        var collisionner = collisionnerTab[i];
+        var hasColl = false;
+        if(Math.abs(collisionner.position.x - vaisseau.position.x) < vaisseauWidth 
+          && Math.abs(collisionner.position.y - vaisseau.position.y) < vaisseauWidth){
+          hasColl = true;
+        }
+        if(hasColl){
+          var audio = new Audio('explode1.wav');
+          audio.play(); 
+        }
+      }      
+    }
+  }
+}
+
+function updateCam(){
+  if(vaisseau!==null){
     //follow vaisseau
     camera.position.z = vaisseau.position.z + cameraZDecal;
-    terraGen();
-    ennemyGen(); 
+  }
+}
+
+function updateVaisseau(){
+  if(vaisseau!==null){
+    vaisseau.position.z -= speed * (Date.now()-lastRender);
     if(playerInput.left && vaisseau.position.x > -terra.demiwidth){
       vaisseau.position.x -= controlSpeed;
     }
@@ -145,6 +187,16 @@ var update = function() {
     if(playerInput.down && vaisseau.position.y > -terra.demiheight){
       vaisseau.position.y -= controlSpeed;
     }
+  } 
+}
+
+var update = function() {
+  if(vaisseau!==null){
+    updateVaisseau();
+    terraGen();
+    ennemyGen();
+    collide(); 
+    updateCam();
   }
 };
 
