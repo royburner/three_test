@@ -87,10 +87,11 @@ playerInput.down = false;
 
 var terra = {};
 terra.horizon = {};
-terra.horizon.dist = 80;
-terra.horizon.z = -terra.horizon.dist;
 terra.demiwidth = 4;//width = 8
 terra.demiheight = 20;//height = 20
+terra.demiProf = 40;
+terra.horizon.dist = terra.demiProf +10;
+terra.horizon.z = -terra.horizon.dist;
 
 var collisionners = {};
 
@@ -102,12 +103,12 @@ var blurp1Speed = 0.002;
 function terraGen(){
   if(vaisseau!==null){
     //create some cubes to complete horizon
-    var deltaHorizon = vaisseau.position.z - terra.horizon.z;
+    var deltaHorizon = camera.position.z - terra.horizon.z;
     while (deltaHorizon <= terra.horizon.dist){
       terra.horizon.z -= terraCubeWidth;
       var terraCube1 = terraCubeGen(-1 * terra.demiwidth * Math.cos(0.1 * terra.horizon.z),-terra.demiheight,terra.horizon.z);
       var terraCube2 = terraCubeGen(terra.demiwidth * Math.cos(0.1 * terra.horizon.z),-terra.demiheight,terra.horizon.z);
-      deltaHorizon = vaisseau.position.z - terra.horizon.z;
+      deltaHorizon = camera.position.z - terra.horizon.z;
     }    
   }
 }
@@ -130,10 +131,11 @@ function ennemyGen(){
           collisionners[zColl].push(blurp1Serie1);  
         }
       }
-      if(vaisseau.position.z+20 >= blurp1Serie1.position.z){
-        blurp1Serie1.position.x = terra.demiwidth* Math.cos(blurp1Speed * (Date.now()-dateDebut));
-      }else if(vaisseau.position.z+cameraZDecal < blurp1Serie1.position.z){
-        //coll
+      if(vaisseau.position.z+terra.demiProf >= blurp1Serie1.position.z){
+        //update y position
+        blurp1Serie1.position.y = terra.demiheight* Math.cos(blurp1Speed * (Date.now()-dateDebut));
+      }else if(vaisseau.position.z+terra.demiProf < blurp1Serie1.position.z){
+        //going out of the screen
         var zCollFin = Math.round(vaisseau.position.z+cameraZDecal);
         collisionners[zCollFin]=null;
         scene.remove(blurp1Serie1);
@@ -143,7 +145,7 @@ function ennemyGen(){
   }
 }
 
-var vaisseauWidth = 1;
+var vaisseauWidth = 2;
 function collide(){
   if(vaisseau!==null){
     var zColl = Math.round(vaisseau.position.z);
@@ -152,10 +154,10 @@ function collide(){
       for (i = 0; i < collisionnerTab.length; i += 1) {
         var collisionner = collisionnerTab[i];
         var hasColl = false;
-        if(Math.abs(collisionner.position.x - vaisseau.position.x) < vaisseauWidth 
-          && Math.abs(collisionner.position.y - vaisseau.position.y) < vaisseauWidth){
+        if(Math.abs(collisionner.position.y - vaisseau.position.y) < vaisseauWidth){
           hasColl = true;
         }
+//TODO should collide also on several z width
         if(hasColl){
           var audio = new Audio('explode1.wav');
           audio.play(); 
@@ -167,19 +169,18 @@ function collide(){
 
 function updateCam(){
   if(vaisseau!==null){
-    //follow vaisseau
-    camera.position.z = vaisseau.position.z + cameraZDecal;
+    camera.position.z -= speed * (Date.now()-lastRender); 
   }
 }
 
 function updateVaisseau(){
   if(vaisseau!==null){
     vaisseau.position.z -= speed * (Date.now()-lastRender);
-    if(playerInput.left && vaisseau.position.x > -terra.demiwidth){
-      vaisseau.position.x -= controlSpeed;
+    if(playerInput.left ){
+      vaisseau.position.z += controlSpeed;
     }
-    if(playerInput.right && vaisseau.position.x < terra.demiwidth){
-      vaisseau.position.x += controlSpeed;
+    if(playerInput.right){
+      vaisseau.position.z -= controlSpeed;
     }
     if(playerInput.up && vaisseau.position.y < terra.demiheight){
       vaisseau.position.y += controlSpeed;
@@ -187,16 +188,19 @@ function updateVaisseau(){
     if(playerInput.down && vaisseau.position.y > -terra.demiheight){
       vaisseau.position.y -= controlSpeed;
     }
+    //vaisseau should stay in the view of the cam
+    vaisseau.position.z = Math.min(vaisseau.position.z, camera.position.z + terra.demiProf);
+    vaisseau.position.z = Math.max(vaisseau.position.z, camera.position.z - terra.demiProf);
   } 
 }
 
 var update = function() {
   if(vaisseau!==null){
+    updateCam();
     updateVaisseau();
     terraGen();
     ennemyGen();
     collide(); 
-    updateCam();
   }
 };
 
