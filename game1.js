@@ -45,7 +45,11 @@ function initBlurp1Geom() {
 initBlurp1Geom();
 var blurp1Mat = new THREE.MeshLambertMaterial({color:0x0000ff });
 function blurp1Gen(x, y, z){
-    return eltGen(x, y, z, blurp1Geom, blurp1Mat);
+    var blurp1 = eltGen(x, y, z, blurp1Geom, blurp1Mat);
+    blurp1.doMove = function () {
+      blurp1.position.y = terra.demiheight* Math.cos(blurp1Speed * (Date.now()-dateDebut));
+    };
+    return blurp1;
 }
 
 var terraCubeWidth = 1;
@@ -93,11 +97,13 @@ terra.demiProf = 40;
 terra.horizon.dist = terra.demiProf +10;
 terra.horizon.z = -terra.horizon.dist;
 
-var collisionners = {};
+var collisionners = new Set();
 
 //lvl 1 def
 var blurp1Serie1BeginZ = 70;
 var blurp1Speed = 0.002;
+
+
 
 ////////// render loop /////////////////
 function terraGen(){
@@ -113,57 +119,42 @@ function terraGen(){
   }
 }
 
-var blurp1Serie1 = null;
 function ennemyGen(){
   if(vaisseau!==null){
     if(terra.horizon.z <= -blurp1Serie1BeginZ){
-      if(blurp1Serie1===null){
-        blurp1Serie1 = blurp1Gen(0, 0, vaisseau.position.z-blurp1Serie1BeginZ);
-        //blurp1Serie1.rotation.y = Math.PI/2;
-        //blurp1Serie1.scale.set(0.2,0.2,0.2);
+      if(collisionners.size===0){
+        collisionners.add(blurp1Gen(0, 0, vaisseau.position.z-blurp1Serie1BeginZ));
         var audio = new Audio('blurp1.wav');
         audio.play();
-        //coll
-        var zColl = Math.round(blurp1Serie1.position.z);
-        if(!(zColl in collisionners)){
-          collisionners[zColl] = [blurp1Serie1];
-        }else{
-          collisionners[zColl].push(blurp1Serie1);  
-        }
-      }
-      if(vaisseau.position.z+terra.demiProf >= blurp1Serie1.position.z){
-        //update y position
-        blurp1Serie1.position.y = terra.demiheight* Math.cos(blurp1Speed * (Date.now()-dateDebut));
-      }else if(vaisseau.position.z+terra.demiProf < blurp1Serie1.position.z){
-        //going out of the screen
-        var zCollFin = Math.round(vaisseau.position.z+cameraZDecal);
-        collisionners[zCollFin]=null;
-        scene.remove(blurp1Serie1);
-        blurp1Serie1 = null;
+      }else{
+        //delete collisionners who are going out of the screen
+        collisionners.forEach(function (aColl, key, theCollSet){
+          if(aColl.position.z > vaisseau.position.z+terra.demiProf){
+            scene.remove(aColl);
+            theCollSet.delete(aColl);
+          }
+	});
       }
     }
   }
 }
 
+function moveCollisionners(){
+  collisionners.forEach(function (aCollisionner){
+    aCollisionner.doMove();
+  });
+}
+
 var vaisseauWidth = 2;
 function collide(){
   if(vaisseau!==null){
-    var zColl = Math.round(vaisseau.position.z);
-    if(zColl in collisionners){
-      var collisionnerTab = collisionners[zColl];
-      for (i = 0; i < collisionnerTab.length; i += 1) {
-        var collisionner = collisionnerTab[i];
-        var hasColl = false;
-        if(Math.abs(collisionner.position.y - vaisseau.position.y) < vaisseauWidth){
-          hasColl = true;
-        }
-//TODO should collide also on several z width
-        if(hasColl){
-          var audio = new Audio('explode1.wav');
-          audio.play(); 
-        }
-      }      
-    }
+    collisionners.forEach(function (aColl){
+      if(Math.abs(aColl.position.y - vaisseau.position.y) < vaisseauWidth && 
+         Math.abs(aColl.position.z - vaisseau.position.z) < vaisseauWidth){
+        var audio = new Audio('explode1.wav');
+        audio.play();	
+      }
+    });
   }
 }
 
@@ -200,6 +191,7 @@ var update = function() {
     updateVaisseau();
     terraGen();
     ennemyGen();
+    moveCollisionners();
     collide(); 
   }
 };
