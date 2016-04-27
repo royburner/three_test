@@ -96,6 +96,7 @@ terra.demiheight = 20;//height = 20
 terra.demiProf = 40;
 terra.horizon.dist = terra.demiProf +10;
 terra.horizon.z = -terra.horizon.dist;
+terra.elements = new Set();//not collidable objects
 
 var collisionners = new Set();
 
@@ -112,10 +113,17 @@ function terraGen(){
     var deltaHorizon = camera.position.z - terra.horizon.z;
     while (deltaHorizon <= terra.horizon.dist){
       terra.horizon.z -= terraCubeWidth;
-      var terraCube1 = terraCubeGen(-1 * terra.demiwidth * Math.cos(0.1 * terra.horizon.z),-terra.demiheight,terra.horizon.z);
-      var terraCube2 = terraCubeGen(terra.demiwidth * Math.cos(0.1 * terra.horizon.z),-terra.demiheight,terra.horizon.z);
+      terra.elements.add(terraCubeGen(-1 * terra.demiwidth * Math.cos(0.1 * terra.horizon.z),-terra.demiheight,terra.horizon.z));
+      terra.elements.add(terraCubeGen(terra.demiwidth * Math.cos(0.1 * terra.horizon.z),-terra.demiheight,terra.horizon.z));
       deltaHorizon = camera.position.z - terra.horizon.z;
-    }    
+    }
+    //destroy elements going out;
+    terra.elements.forEach(function(elt, key, eltSet){
+      if(elt.position.z > camera.position.z+terra.demiProf){
+        scene.remove(elt);
+        eltSet.delete(elt);
+      }
+    });    
   }
 }
 
@@ -129,7 +137,7 @@ function ennemyGen(){
       }else{
         //delete collisionners who are going out of the screen
         collisionners.forEach(function (aColl, key, theCollSet){
-          if(aColl.position.z > vaisseau.position.z+terra.demiProf){
+          if(aColl.position.z > camera.position.z+terra.demiProf){
             scene.remove(aColl);
             theCollSet.delete(aColl);
           }
