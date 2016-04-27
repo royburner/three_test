@@ -26,11 +26,15 @@ function initVaisseau() {
 initVaisseau();
 
 //game elements
-function eltGen(x, y, z, geom, mat){
+function eltGen(x, y, z, geom, mat, xrot = 0, yrot = 0, zrot = 0, scale = 1){
       var elt = new THREE.Mesh(geom, mat);
       elt.position.x = x;
       elt.position.y = y;
       elt.position.z = z;
+      elt.rotation.x = xrot;
+      elt.rotation.y = yrot;
+      elt.rotation.z = zrot;
+      elt.scale.set(scale, scale, scale);
       scene.add( elt );
       return elt;     
 }
@@ -58,6 +62,19 @@ var terraCubeMat = new THREE.MeshLambertMaterial({color:0x00ff00 });
 function terraCubeGen(x, y, z){
       return eltGen( x, y, z, terraCubeGeom, terraCubeMat );
 }
+
+var weapon1Geom = new THREE.CylinderGeometry( 0, 5, 20, 4 );
+var weapon1Mat = new THREE.MeshLambertMaterial({color:0xff0000 });
+function weapon1Gen(x, y, z){
+  var weapon1 = eltGen( x, y, z, weapon1Geom, weapon1Mat,-Math.PI / 2, 0, 0, 0.1);
+  weapon1.speed = 1;
+  weapon1.doMove = function () {
+    weapon1.position.z -= weapon1.speed;
+    weapon1.speed += 1;
+  };
+  return weapon1;
+}
+
 
 //lights
 var light = new THREE.AmbientLight(0xaaaaaa);
@@ -88,20 +105,22 @@ playerInput.left = false;
 playerInput.right = false;
 playerInput.up = false;
 playerInput.down = false;
+playerInput.firing = false;
 
 var terra = {};
 terra.horizon = {};
 terra.demiwidth = 4;//width = 8
 terra.demiheight = 20;//height = 20
 terra.demiProf = 40;
-terra.horizon.dist = terra.demiProf +10;
-terra.horizon.z = -terra.horizon.dist;
+terra.horizon.z = camera.position.z - terra.demiProf ;
 terra.elements = new Set();//not collidable objects
 
 var collisionners = new Set();
 
+var bullets = new Set();
+
 //lvl 1 def
-var blurp1Serie1BeginZ = 70;
+var blurp1Serie1BeginZ = -70;
 var blurp1Speed = 0.002;
 
 
@@ -110,46 +129,32 @@ var blurp1Speed = 0.002;
 function terraGen(){
   if(vaisseau!==null){
     //create some cubes to complete horizon
-    var deltaHorizon = camera.position.z - terra.horizon.z;
-    while (deltaHorizon <= terra.horizon.dist){
-      terra.horizon.z -= terraCubeWidth;
+    var deltaHorizon = terra.horizon.z - (camera.position.z - terra.demiProf);
+    while (deltaHorizon >= terraCubeWidth ){
       terra.elements.add(terraCubeGen(-1 * terra.demiwidth * Math.cos(0.1 * terra.horizon.z),-terra.demiheight,terra.horizon.z));
       terra.elements.add(terraCubeGen(terra.demiwidth * Math.cos(0.1 * terra.horizon.z),-terra.demiheight,terra.horizon.z));
-      deltaHorizon = camera.position.z - terra.horizon.z;
+      terra.horizon.z -= terraCubeWidth;
+      deltaHorizon = terra.horizon.z - (camera.position.z - terra.demiProf);
     }
-    //destroy elements going out;
-    terra.elements.forEach(function(elt, key, eltSet){
-      if(elt.position.z > camera.position.z+terra.demiProf){
-        scene.remove(elt);
-        eltSet.delete(elt);
-      }
-    });    
   }
 }
 
 function ennemyGen(){
   if(vaisseau!==null){
-    if(terra.horizon.z <= -blurp1Serie1BeginZ){
-      if(collisionners.size===0){
-        collisionners.add(blurp1Gen(0, 0, vaisseau.position.z-blurp1Serie1BeginZ));
-        var audio = new Audio('blurp1.wav');
-        audio.play();
-      }else{
-        //delete collisionners who are going out of the screen
-        collisionners.forEach(function (aColl, key, theCollSet){
-          if(aColl.position.z > camera.position.z+terra.demiProf){
-            scene.remove(aColl);
-            theCollSet.delete(aColl);
-          }
-	});
-      }
+    if(collisionners.size<=1){
+      collisionners.add(blurp1Gen(0, 0, camera.position.z - terra.demiProf));
+      var audio = new Audio('blurp1.wav');
+      audio.play();
     }
   }
 }
 
-function moveCollisionners(){
+function moveElts(){
   collisionners.forEach(function (aCollisionner){
     aCollisionner.doMove();
+  });
+  bullets.forEach(function (aBullet){
+    aBullet.doMove();
   });
 }
 
@@ -193,14 +198,42 @@ function updateVaisseau(){
   } 
 }
 
+function fire(){
+  if(vaisseau!==null && playerInput.firing===true){
+    bullets.add(weapon1Gen(vaisseau.position.x, vaisseau.position.y, vaisseau.position.z));
+    var audio = new Audio('pan.wav');
+    audio.play();
+  } 
+}
+
+function cleanEltSet(eltSet){
+  eltSet.forEach(function (elt, key, theSet){
+    if(elt.position.z > camera.position.z+terra.demiProf ||
+       elt.position.z < camera.position.z-terra.demiProf ){
+      scene.remove(elt);
+      theSet.delete(elt);
+    }
+  });
+}
+
+function cleanup(){
+  if(vaisseau!==null){
+    cleanEltSet(collisionners);
+    cleanEltSet(terra.elements);
+    cleanEltSet(bullets);
+  }     
+}
+
 var update = function() {
   if(vaisseau!==null){
     updateCam();
     updateVaisseau();
     terraGen();
     ennemyGen();
-    moveCollisionners();
+    moveElts();
+    fire();
     collide(); 
+    cleanup();
   }
 };
 
@@ -218,14 +251,6 @@ render();
 
 ////////// input ////////////////
 
-function keyPress(event) {
-  if(event.keyCode=='0'){
-    var audio = new Audio('pan.wav');
-    audio.play(); 
-  }
-}
-document.body.addEventListener("keypress", keyPress);
-
 function keyDown(event){
   if(event.keyCode=='37'){
     playerInput.left = true;
@@ -236,8 +261,11 @@ function keyDown(event){
   if(event.keyCode=='38'){
      playerInput.up = true;
   }
-  if(event.keyCode=='40'){
+  else if(event.keyCode=='40'){
      playerInput.down = true;
+  }
+  if(event.keyCode=='32'){
+     playerInput.firing = true;
   } 
 }
 document.body.addEventListener("keydown", keyDown);
@@ -250,10 +278,13 @@ function keyUp(event){
     playerInput.right = false; 
   }
   if(event.keyCode=='38'){
-     playerInput.up = false;
+    playerInput.up = false;
   }
-  if(event.keyCode=='40'){
-     playerInput.down = false;
+  else if(event.keyCode=='40'){
+    playerInput.down = false;
+  }
+  if(event.keyCode=='32'){
+    playerInput.firing = false;
   } 
 }
 document.body.addEventListener("keyup", keyUp);
