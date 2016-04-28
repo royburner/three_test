@@ -66,7 +66,7 @@ function terraCubeGen(x, y, z){
 var weapon1Geom = new THREE.CylinderGeometry( 0, 5, 20, 4 );
 var weapon1Mat = new THREE.MeshLambertMaterial({color:0xff0000 });
 function weapon1Gen(x, y, z){
-  var weapon1 = eltGen( x, y, z, weapon1Geom, weapon1Mat,-Math.PI / 2, 0, 0, 0.1);
+  var weapon1 = eltGen( x, y, z-1, weapon1Geom, weapon1Mat,-Math.PI / 2, 0, 0, 0.1);//-1 for vaisseau with
   weapon1.speed = 1;
   weapon1.doMove = function () {
     weapon1.position.z -= weapon1.speed;
@@ -255,16 +255,16 @@ function keyDown(event){
   if(event.keyCode=='37'){
     playerInput.left = true;
   }
-  else if(event.keyCode=='39'){
+  if(event.keyCode=='39'){
     playerInput.right = true; 
   }
   if(event.keyCode=='38'){
      playerInput.up = true;
   }
-  else if(event.keyCode=='40'){
+  if(event.keyCode=='40'){
      playerInput.down = true;
   }
-  if(event.keyCode=='32'){
+  if(event.keyCode=='70'){//f
      playerInput.firing = true;
   } 
 }
@@ -274,16 +274,16 @@ function keyUp(event){
   if(event.keyCode=='37'){
     playerInput.left = false;
   }
-  else if(event.keyCode=='39'){
+  if(event.keyCode=='39'){
     playerInput.right = false; 
   }
   if(event.keyCode=='38'){
     playerInput.up = false;
   }
-  else if(event.keyCode=='40'){
+  if(event.keyCode=='40'){
     playerInput.down = false;
   }
-  if(event.keyCode=='32'){
+  if(event.keyCode=='70'){//f
     playerInput.firing = false;
   } 
 }
