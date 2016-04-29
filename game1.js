@@ -144,8 +144,8 @@ function ennemyGen(){
   if(vaisseau!==null){
     if(collisionners.size<=1){
       collisionners.add(blurp1Gen(0, 0, camera.position.z - terra.demiProf));
-      var audio = new Audio('blurp1.wav');
-      audio.play();
+      //var audio = new Audio('blurp1.wav');
+      //audio.play();
     }
   }
 }
@@ -162,13 +162,26 @@ function moveElts(){
 var vaisseauWidth = 2;
 function collide(){
   if(vaisseau!==null){
-    collisionners.forEach(function (aColl){
+    collisionners.forEach(function (aColl, key, theSet){
+      //collision with vessel
       if(Math.abs(aColl.position.y - vaisseau.position.y) < vaisseauWidth && 
          Math.abs(aColl.position.z - vaisseau.position.z) < vaisseauWidth){
         var audio = new Audio('explode1.wav');
         audio.play();	
       }
+      //collision with bullets
+      bullets.forEach(function (aBullet){
+        if(Math.abs(aColl.position.y - aBullet.position.y) < 1 &&
+           Math.abs(aColl.position.z - aBullet.position.z) < 10){
+          var audio = new Audio('explode2.wav');
+          audio.play();
+          scene.remove(aColl);
+          theSet.delete(aColl);
+        }
+      });
+     
     });
+    
   }
 }
 
@@ -202,8 +215,8 @@ function updateVaisseau(){
 function fire(){
   if(vaisseau!==null && playerInput.firing===true && bullets.size<10){
     bullets.add(weapon1Gen(vaisseau.position.x, vaisseau.position.y, vaisseau.position.z));
-    var audio = new Audio('pan.wav');
-    audio.play();
+    //var audio = new Audio('pan.wav');
+    //audio.play();
   } 
 }
 
