@@ -7,7 +7,7 @@ document.body.appendChild( stats.dom );
 var scene = new THREE.Scene();
 var aspect = window.innerWidth / window.innerHeight;
 var camera = new THREE.PerspectiveCamera( 120, aspect, 0.1, 1000 );
-var renderer = new THREE.WebGLRenderer();
+var renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize( window.innerWidth, window.innerHeight );
 document.body.appendChild( renderer.domElement );
 
@@ -64,13 +64,14 @@ function terraCubeGen(x, y, z){
 }
 
 var weapon1Geom = new THREE.CylinderGeometry( 0, 5, 20, 4 );
-var weapon1Mat = new THREE.MeshLambertMaterial({color:0xff0000 });
+var weapon1Mat = new THREE.MeshLambertMaterial({color:0xff0000});
 function weapon1Gen(x, y, z){
   var weapon1 = eltGen( x, y, z-1, weapon1Geom, weapon1Mat,-Math.PI / 2, 0, 0, 0.1);//-1 for vaisseau with
   weapon1.speed = 1;
   weapon1.doMove = function () {
     weapon1.position.z -= weapon1.speed;
-    weapon1.speed += 1;
+    weapon1.rotation.y += weapon1.speed;
+    weapon1.speed += 0.5;
   };
   return weapon1;
 }
@@ -199,7 +200,7 @@ function updateVaisseau(){
 }
 
 function fire(){
-  if(vaisseau!==null && playerInput.firing===true){
+  if(vaisseau!==null && playerInput.firing===true && bullets.size<10){
     bullets.add(weapon1Gen(vaisseau.position.x, vaisseau.position.y, vaisseau.position.z));
     var audio = new Audio('pan.wav');
     audio.play();
